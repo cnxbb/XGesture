@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>XGesture Demo</title>
+<style>
+    #hdiv div {
+        background-image:linear-gradient(to right, #fff 0%,red 25%,yellow 50%,blue 75%, #000);
+        position:absolute;
+        left:0px;
+        top:0px;
+        height:100%;
+        width:4000px;
+    }
+
+    #vdiv div {
+        background-image:linear-gradient(to bottom, #fff 0%,red 25%,yellow 50%,blue 75%, #000);
+        position:absolute;
+        left:0px;
+        top:0px;
+        height:4000px;
+        width:100%;
+    }
+
+    #hvdiv div {
+        background-image:repeating-radial-gradient(farthest-side at 50% 50%, blue, yellow 2%);
+        position:absolute;
+        left:0px;
+        top:0px;
+        height:3000px;
+        width:3000px;
+    }
+</style>
+<script type="text/javascript" src="../jquery-1.11.1.min.js"></script>
+<script type="text/javascript" src="XGesture.js"></script>
+<script language="JavaScript">
+    var A = 5000; //定义加速度
+    function opt( selecter,
+                  selecter_inner,
+                  left_distance, 
+                  right_distance, 
+                  up_distance, 
+                  down_distance ) {
+        this.start = function( self, e ) { //开始滑动手势
+            //如果在移动中先停止
+            if( self.XTimeHandle ) {
+                clearInterval( self.XTimeHandle );
+                self.XTimeHandle = null;
+            }
+            if( self.YTimeHandle ) {
+                clearInterval( self.YTimeHandle );
+                self.YTimeHandle = null;
+            }
+            //记录原始位置
+            self._left = parseInt( $(selecter_inner).css('left') ); 
+            self._top = parseInt( $(selecter_inner).css('top') ); 
+            //计算left最小值
+            self._minx = parseInt( $(selecter).width() ) - parseInt( $(selecter_inner).width() );
+            //计算top最小值
+            self._miny = parseInt( $(selecter).height() ) - parseInt( $(selecter_inner).height() );
+        };
+        this.end = function( self, e ) { //滑动手势结束
+            console.log( 'end', e );
+        };
+        this.move = function( self, e, dx, dy ) { //手势滑动中
+            var nx = self._left + dx;
+            if( nx > 0 )  nx = 0;
+            if( nx < self._minx )  nx = self._minx;
+            $(selecter_inner).css('left', nx + 'px' );
+
+            var ny = self._top + dy;
+            if( ny > 0 )  ny = 0;
+            if( ny < self._miny )  ny = self._miny;
+            $(selecter_inner).css('top', ny + 'px' );
+        };
+        this.inertiafnc = function( self, _speed, _cssname ) {  //手势惯性阻尼减速运动
+            return function() {
+                //方向系数
+                var xs = _speed > 0 ? 1 : -1;
+                if( _cssname == 'left' ) {
+                    var t = ( (new Date()).getTime() - self.timestampX ) / 1000;
+                    var DetailT = t > self.stopTX ? self.stopTX : t;
+                    if( DetailT == self.stopTX ) {
+                        if( self.XTimeHandle ) {
+                            clearInterval( self.XTimeHandle );
+                            self.XTimeHandle = null;
+                        }
+                    }
+                    var h = self.HX - A * ( self.stopTX - DetailT ) * ( self.stopTX - DetailT ) / 2;
+                    var nx = self._left - h * xs;
+                    if( nx > 0 )  nx = 0;
+                    if( nx < self._minx )  nx = self._minx;
+                    if( nx == 0 || nx == self._minx ) {
+                        if( self.XTimeHandle ) {
+                            clearInterval( self.XTimeHandle );
+                            self.XTimeHandle = null;
+                        } 
+                    }
+                    $(selecter_inner).css('left', nx + 'px' );
+                } else if( _cssname == 'top' ) {
+                    var t = ( (new Date()).getTime() - self.timestampY ) / 1000;
+                    var DetailT = t > self.stopTY ? self.stopTY : t; 
+                    if( DetailT == self.stopTY ) {
+                        if( self.YTimeHandle ) {
+                            clearInterval( self.YTimeHandle );
+                            self.YTimeHandle = null;
+                        }
+                    }
+                    var h = self.HY - A * ( self.stopTY - DetailT ) * ( self.stopTY - DetailT ) / 2;
+                    var ny = self._top - h * xs;
+                    if( ny > 0 )  ny = 0;
+                    if( ny < self._miny )  ny = self._miny;
+                    if( ny == 0 || ny == self._miny ) {
+                        if( self.YTimeHandle ) {
+                            clearInterval( self.YTimeHandle );
+                            self.YTimeHandle = null;
+                        } 
+                    }
+                    $(selecter_inner).css('top', ny + 'px' );
+                }
+            }
+        };
+        this.inertia = function( self, _speed, _cssname ) { //惯性相关计算
+            if( _cssname == 'left' ) {
+                //计算速度将到0需要的时间                    
+                self.stopTX =  Math.abs( _speed / A );
+                //计算速度降到0 理想情况下需要移动的距离
+                self.HX = A * self.stopTX * self.stopTX / 2;
+                //记录时间戳
+                self.timestampX = (new Date()).getTime();
+                //记录当前位置
+                self._left = parseInt( $(selecter_inner).css('left') );
+                if( self.XTimeHandle ) {
+                    clearInterval( self.XTimeHandle );
+                    self.XTimeHandle = null;
+                }
+                self.XTimeHandle = setInterval( self.Opt.inertiafnc( self, _speed, _cssname ), 5 );
+            } else if( _cssname == 'top' ) {
+                //计算速度将到0需要的时间                    
+                self.stopTY =  Math.abs( _speed / A );
+                //计算速度降到0 理想情况下需要移动的距离
+                self.HY = A * self.stopTY * self.stopTY / 2;
+                //记录时间戳
+                self.timestampY = (new Date()).getTime();
+                //记录当前位置
+                self._top = parseInt( $(selecter_inner).css('top') );
+                if( self.YTimeHandle ) {
+                    clearInterval( self.YTimeHandle );
+                    self.YTimeHandle = null;
+                }
+                self.YTimeHandle = setInterval( self.Opt.inertiafnc( self, _speed, _cssname ), 5 );
+            }
+        };
+        this.left = {
+            distance : left_distance,
+            fnc : function( self, _distance, _speed ) {
+                self.Opt.inertia( self, _speed, 'left' );    
+            }
+        };
+        this.right = {
+            distance : right_distance,
+            fnc : function( self, _distance, _speed ) {
+                self.Opt.inertia( self, _speed, 'left' ); 
+            }
+        };
+        this.up = {
+            distance : up_distance,
+            fnc : function( self, _distance, _speed ) {
+                self.Opt.inertia( self, _speed, 'top' ); 
+            }
+        };
+        this.down = {
+            distance : down_distance,
+            fnc : function( self, _distance, _speed ) {
+                self.Opt.inertia( self, _speed, 'top' ); 
+            }
+        };
+    };
+
+    window.onload = function() {
+        var h = new XGesture( 'hdiv', new opt( '#hdiv', '#hdiv div', 10, 10, 0, 0 ) );
+        var v = new XGesture( 'vdiv', new opt( '#vdiv', '#vdiv div', 0, 0, 10, 10 ) );
+        var hv = new XGesture( 'hvdiv', new opt( '#hvdiv', '#hvdiv div', 10, 10, 10, 10 ) );
+
+    };
+</script>
+</head>
+<body>
+    <div id="hdiv" style="width:300px;height:100px;position:relative;overflow:hidden;">
+        <div style=""></div>
+    </div>
+
+    <div id="vdiv" style="width:300px;height:300px;position:relative;overflow:hidden;">
+        <div style=""></div>
+    </div>
+
+    <div id="hvdiv" style="width:300px;height:300px;position:relative;overflow:hidden;">
+        <div style=""></div>
+    </div>
+</body>
+</html>
