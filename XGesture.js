@@ -145,7 +145,7 @@ function XGesture( ELID,        // 准备响应手势的元素ID
 };
 
 
-function opt( selector,         //父容器选择器
+function XGestureOption( selector,         //父容器选择器
               selector_inner,   //拖动的内容选择器
               acceleration,     //运动加速度
               left_distance,    //上下左右触发手势的最小移动距离
