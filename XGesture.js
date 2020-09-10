@@ -59,7 +59,6 @@ function XGesture( ELID,        // 准备响应手势的元素ID
             element['on'+type] = handler;
         }
     };
-    this.δ = 1;
     this.makefnc = function( fn, proxy ) {
         ret = function() {
             return fn.apply( proxy, arguments );
