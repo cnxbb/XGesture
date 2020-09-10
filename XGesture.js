@@ -6,7 +6,7 @@
         见 index.html
 */
 
-
+//手势事件处理
 function XGesture( ELID,        // 准备响应手势的元素ID
                    OptAndHandle // 参数
         /*
@@ -53,8 +53,7 @@ function XGesture( ELID,        // 准备响应手势的元素ID
     XGesture.prototype.addEvent = function( element, type, handler ){
         if(element.addEventListener){
             element.addEventListener(type, handler, false);
-        }
-        else if(element.attachEvent){
+        } else if(element.attachEvent){
             element.attachEvent('on'+type, handler);
         }else{
             element['on'+type] = handler;
@@ -143,4 +142,153 @@ function XGesture( ELID,        // 准备响应手势的元素ID
     XGesture.prototype.addEvent( document.getElementById( this.ELID ), 'touchstart',    this.makefnc( this.touchHandle, this ) );
     XGesture.prototype.addEvent( document.getElementById( this.ELID ), 'touchend',      this.makefnc( this.touchHandle, this ) );
     XGesture.prototype.addEvent( document.getElementById( this.ELID ), 'touchmove',     this.makefnc( this.touchHandle, this ) );
+};
+
+
+function opt( selector,         //父容器选择器
+              selector_inner,   //拖动的内容选择器
+              acceleration,     //运动加速度
+              left_distance,    //上下左右触发手势的最小移动距离
+              right_distance, 
+              up_distance, 
+              down_distance ) {
+    this.start = function( self, e ) { //开始滑动手势
+        //如果在移动中先停止
+        if( self.XTimeHandle ) {
+            clearInterval( self.XTimeHandle );
+            self.XTimeHandle = null;
+        }
+        if( self.YTimeHandle ) {
+            clearInterval( self.YTimeHandle );
+            self.YTimeHandle = null;
+        }
+        //记录原始位置
+        self._left = parseInt( document.querySelector(selector_inner).offsetLeft );
+        self._top = parseInt( document.querySelector(selector_inner).offsetTop ); 
+        //计算left最小值
+        self._minx = parseInt( document.querySelector(selector).offsetWidth ) - parseInt( document.querySelector(selector_inner).offsetWidth );
+        //计算top最小值
+        self._miny = parseInt( document.querySelector(selector).offsetHeight ) - parseInt( document.querySelector(selector_inner).offsetHeight  );
+    };
+    this.end = function( self, e ) { //滑动手势结束
+        
+    };
+    this.move = function( self, e, dx, dy ) { //手势滑动中
+        var nx = self._left + dx;
+        if( nx > 0 )  nx = 0;
+        if( nx < self._minx )  nx = self._minx;
+        document.querySelector(selector_inner).style.left = nx +'px';
+
+        var ny = self._top + dy;
+        if( ny > 0 )  ny = 0;
+        if( ny < self._miny )  ny = self._miny;
+        document.querySelector(selector_inner).style.top = ny +'px';
+    };
+
+    //上下左右手势事件处理
+    this.left = {
+        distance : left_distance,
+        fnc : function( self, _distance, _speed ) {
+            self.Opt.inertia( self, _speed, 'left' );    
+        }
+    };
+    this.right = {
+        distance : right_distance,
+        fnc : function( self, _distance, _speed ) {
+            self.Opt.inertia( self, _speed, 'left' ); 
+        }
+    };
+    this.up = {
+        distance : up_distance,
+        fnc : function( self, _distance, _speed ) {
+            self.Opt.inertia( self, _speed, 'top' ); 
+        }
+    };
+    this.down = {
+        distance : down_distance,
+        fnc : function( self, _distance, _speed ) {
+            self.Opt.inertia( self, _speed, 'top' ); 
+        }
+    };
+
+    
+    this.inertiafnc = function( self, _speed, _cssname ) {  //手势惯性阻尼减速运动
+        return function() {
+            //方向系数
+            var xs = _speed > 0 ? 1 : -1;
+            if( _cssname == 'left' ) {
+                var t = ( (new Date()).getTime() - self.timestampX ) / 1000;
+                var DetailT = t > self.stopTX ? self.stopTX : t;
+                if( DetailT == self.stopTX ) {
+                    if( self.XTimeHandle ) {
+                        clearInterval( self.XTimeHandle );
+                        self.XTimeHandle = null;
+                    }
+                }
+                var h = self.HX - acceleration * ( self.stopTX - DetailT ) * ( self.stopTX - DetailT ) / 2;
+                var nx = self._left - h * xs;
+                if( nx > 0 )  nx = 0;
+                if( nx < self._minx )  nx = self._minx;
+                if( nx == 0 || nx == self._minx ) {
+                    if( self.XTimeHandle ) {
+                        clearInterval( self.XTimeHandle );
+                        self.XTimeHandle = null;
+                    } 
+                }
+                document.querySelector(selector_inner).style.left = nx +'px';
+            } else if( _cssname == 'top' ) {
+                var t = ( (new Date()).getTime() - self.timestampY ) / 1000;
+                var DetailT = t > self.stopTY ? self.stopTY : t; 
+                if( DetailT == self.stopTY ) {
+                    if( self.YTimeHandle ) {
+                        clearInterval( self.YTimeHandle );
+                        self.YTimeHandle = null;
+                    }
+                }
+                var h = self.HY - acceleration * ( self.stopTY - DetailT ) * ( self.stopTY - DetailT ) / 2;
+                var ny = self._top - h * xs;
+                if( ny > 0 )  ny = 0;
+                if( ny < self._miny )  ny = self._miny;
+                if( ny == 0 || ny == self._miny ) {
+                    if( self.YTimeHandle ) {
+                        clearInterval( self.YTimeHandle );
+                        self.YTimeHandle = null;
+                    } 
+                }
+                document.querySelector(selector_inner).style.top = ny +'px';
+            }
+        }
+    };
+    this.inertia = function( self, _speed, _cssname ) { //惯性相关计算
+        if( _cssname == 'left' ) {
+            //计算速度将到0需要的时间                    
+            self.stopTX =  Math.abs( _speed / acceleration );
+            //计算速度降到0 理想情况下需要移动的距离
+            self.HX = acceleration * self.stopTX * self.stopTX / 2;
+            //记录时间戳
+            self.timestampX = (new Date()).getTime();
+            //记录当前位置
+            self._left = parseInt( document.querySelector(selector_inner).offsetLeft );
+            if( self.XTimeHandle ) {
+                clearInterval( self.XTimeHandle );
+                self.XTimeHandle = null;
+            }
+            self.XTimeHandle = setInterval( self.Opt.inertiafnc( self, _speed, _cssname ), 5 );
+        } else if( _cssname == 'top' ) {
+            //计算速度将到0需要的时间                    
+            self.stopTY =  Math.abs( _speed / acceleration );
+            //计算速度降到0 理想情况下需要移动的距离
+            self.HY = acceleration * self.stopTY * self.stopTY / 2;
+            //记录时间戳
+            self.timestampY = (new Date()).getTime();
+            //记录当前位置
+            self._top = parseInt( document.querySelector(selector_inner).offsetTop ); 
+            if( self.YTimeHandle ) {
+                clearInterval( self.YTimeHandle );
+                self.YTimeHandle = null;
+            }
+            self.YTimeHandle = setInterval( self.Opt.inertiafnc( self, _speed, _cssname ), 5 );
+        }
+    };
+    
 };
